@@ -76,6 +76,7 @@ class VideoPlayerValue {
   ///
   /// Is null when [initialized] is false.
   final Size size;
+  final double speed;
 
   /// Indicates whether or not the video has been loaded and is ready to play.
   bool get initialized => duration != null;
@@ -100,6 +101,7 @@ class VideoPlayerValue {
     bool isBuffering,
     double volume,
     String errorDescription,
+    double speed,
   }) {
     return VideoPlayerValue(
       duration: duration ?? this.duration,
@@ -110,6 +112,7 @@ class VideoPlayerValue {
       isLooping: isLooping ?? this.isLooping,
       isBuffering: isBuffering ?? this.isBuffering,
       volume: volume ?? this.volume,
+      speed: speed ?? this.speed,
       errorDescription: errorDescription ?? this.errorDescription,
     );
   }
@@ -125,7 +128,8 @@ class VideoPlayerValue {
         'isLooping: $isLooping, '
         'isBuffering: $isBuffering'
         'volume: $volume, '
-        'errorDescription: $errorDescription)';
+        'errorDescription: $errorDescription'
+        'speed: $speed)';
   }
 }
 
@@ -391,6 +395,26 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   Future<void> setVolume(double volume) async {
     value = value.copyWith(volume: volume.clamp(0.0, 1.0));
     await _applyVolume();
+  }
+
+
+  Future<void> _applySpeed() async {
+    if (!value.initialized || _isDisposed) {
+      return;
+    }
+
+    // On iOS setting the speed on an AVPlayer starts playing
+    // the video straightaway. We avoid this surprising behaviour
+    // by not changing the speed of the player until after the video
+    // starts playing
+    if (!value.isPlaying) {
+      return;
+    }
+
+    await _channel.invokeMethod<void>(
+      'setSpeed',
+      <String, dynamic>{'textureId': _textureId, 'speed': value.speed},
+    );
   }
 }
 
