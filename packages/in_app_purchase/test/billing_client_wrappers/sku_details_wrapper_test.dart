@@ -5,9 +5,8 @@
 import 'package:test/test.dart';
 import 'package:in_app_purchase/billing_client_wrappers.dart';
 import 'package:in_app_purchase/src/billing_client_wrappers/enum_converters.dart';
-import 'package:in_app_purchase/src/in_app_purchase/product_details.dart';
 
-final SkuDetailsWrapper dummySkuDetails = SkuDetailsWrapper(
+final SkuDetailsWrapper dummyWrapper = SkuDetailsWrapper(
   description: 'description',
   freeTrialPeriod: 'freeTrialPeriod',
   introductoryPrice: 'introductoryPrice',
@@ -27,7 +26,7 @@ final SkuDetailsWrapper dummySkuDetails = SkuDetailsWrapper(
 void main() {
   group('SkuDetailsWrapper', () {
     test('converts from map', () {
-      final SkuDetailsWrapper expected = dummySkuDetails;
+      final SkuDetailsWrapper expected = dummyWrapper;
       final SkuDetailsWrapper parsed =
           SkuDetailsWrapper.fromJson(buildSkuMap(expected));
 
@@ -39,8 +38,8 @@ void main() {
     test('parsed from map', () {
       final BillingResponse responseCode = BillingResponse.ok;
       final List<SkuDetailsWrapper> skusDetails = <SkuDetailsWrapper>[
-        dummySkuDetails,
-        dummySkuDetails
+        dummyWrapper,
+        dummyWrapper
       ];
       final SkuDetailsResponseWrapper expected = SkuDetailsResponseWrapper(
           responseCode: responseCode, skuDetailsList: skusDetails);
@@ -49,25 +48,13 @@ void main() {
           SkuDetailsResponseWrapper.fromJson(<String, dynamic>{
         'responseCode': BillingResponseConverter().toJson(responseCode),
         'skuDetailsList': <Map<String, dynamic>>[
-          buildSkuMap(dummySkuDetails),
-          buildSkuMap(dummySkuDetails)
+          buildSkuMap(dummyWrapper),
+          buildSkuMap(dummyWrapper)
         ]
       });
 
       expect(parsed.responseCode, equals(expected.responseCode));
       expect(parsed.skuDetailsList, containsAll(expected.skuDetailsList));
-    });
-
-    test('toProductDetails() should return correct Product object', () {
-      final SkuDetailsWrapper wrapper =
-          SkuDetailsWrapper.fromJson(buildSkuMap(dummySkuDetails));
-      final ProductDetails product = ProductDetails.fromSkuDetails(wrapper);
-      expect(product.title, wrapper.title);
-      expect(product.description, wrapper.description);
-      expect(product.id, wrapper.sku);
-      expect(product.price, wrapper.price);
-      expect(product.skuDetail, wrapper);
-      expect(product.skProduct, null);
     });
 
     test('handles empty list of skuDetails', () {

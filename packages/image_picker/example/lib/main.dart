@@ -1,8 +1,6 @@
-// Copyright 2019 The Flutter Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-// ignore_for_file: public_member_api_docs
 
 import 'dart:async';
 import 'dart:io';
@@ -35,118 +33,99 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  File _imageFile;
-  dynamic _pickImageError;
+  Future<File> _imageFile;
   bool isVideo = false;
   VideoPlayerController _controller;
-  String _retrieveDataError;
+  VoidCallback listener;
 
-  Future<void> _playVideo(File file) async {
-    if (file != null && mounted) {
-      await _disposeVideoController();
-      _controller = VideoPlayerController.file(file);
-      await _controller.setVolume(1.0);
-      await _controller.initialize();
-      await _controller.setLooping(true);
-      await _controller.play();
-      setState(() {});
-    }
-  }
-
-  void _onImageButtonPressed(ImageSource source) async {
-    if (_controller != null) {
-      await _controller.setVolume(0.0);
-    }
-    if (isVideo) {
-      final File file = await ImagePicker.pickVideo(source: source);
-      await _playVideo(file);
-    } else {
-      try {
-        _imageFile = await ImagePicker.pickImage(source: source);
-        setState(() {});
-      } catch (e) {
-        _pickImageError = e;
+  void _onImageButtonPressed(ImageSource source) {
+    setState(() {
+      if (_controller != null) {
+        _controller.setVolume(0.0);
+        _controller.removeListener(listener);
       }
-    }
+      if (isVideo) {
+        ImagePicker.pickVideo(source: source).then((File file) {
+          if (file != null && mounted) {
+            setState(() {
+              _controller = VideoPlayerController.file(file)
+                ..addListener(listener)
+                ..setVolume(1.0)
+                ..initialize()
+                ..setLooping(true)
+                ..play();
+            });
+          }
+        });
+      } else {
+        _imageFile = ImagePicker.pickImage(source: source);
+      }
+    });
   }
 
   @override
   void deactivate() {
     if (_controller != null) {
       _controller.setVolume(0.0);
-      _controller.pause();
+      _controller.removeListener(listener);
     }
     super.deactivate();
   }
 
   @override
   void dispose() {
-    _disposeVideoController();
+    if (_controller != null) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _disposeVideoController() async {
-    if (_controller != null) {
-      await _controller.dispose();
-      _controller = null;
-    }
+  @override
+  void initState() {
+    super.initState();
+    listener = () {
+      setState(() {});
+    };
   }
 
-  Widget _previewVideo() {
-    final Text retrieveError = _getRetrieveErrorWidget();
-    if (retrieveError != null) {
-      return retrieveError;
-    }
-    if (_controller == null) {
+  Widget _previewVideo(VideoPlayerController controller) {
+    if (controller == null) {
       return const Text(
         'You have not yet picked a video',
         textAlign: TextAlign.center,
       );
-    }
-    return Padding(
-      padding: const EdgeInsets.all(10.0),
-      child: AspectRatioVideo(_controller),
-    );
-  }
-
-  Widget _previewImage() {
-    final Text retrieveError = _getRetrieveErrorWidget();
-    if (retrieveError != null) {
-      return retrieveError;
-    }
-    if (_imageFile != null) {
-      return Image.file(_imageFile);
-    } else if (_pickImageError != null) {
-      return Text(
-        'Pick image error: $_pickImageError',
-        textAlign: TextAlign.center,
+    } else if (controller.value.initialized) {
+      return Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: AspectRatioVideo(controller),
       );
     } else {
       return const Text(
-        'You have not yet picked an image.',
+        'Error Loading Video',
         textAlign: TextAlign.center,
       );
     }
   }
 
-  Future<void> retrieveLostData() async {
-    final LostDataResponse response = await ImagePicker.retrieveLostData();
-    if (response.isEmpty) {
-      return;
-    }
-    if (response.file != null) {
-      if (response.type == RetrieveType.video) {
-        isVideo = true;
-        await _playVideo(response.file);
-      } else {
-        isVideo = false;
-        setState(() {
-          _imageFile = response.file;
+  Widget _previewImage() {
+    return FutureBuilder<File>(
+        future: _imageFile,
+        builder: (BuildContext context, AsyncSnapshot<File> snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              snapshot.data != null) {
+            return Image.file(snapshot.data);
+          } else if (snapshot.error != null) {
+            return const Text(
+              'Error picking image.',
+              textAlign: TextAlign.center,
+            );
+          } else {
+            return const Text(
+              'You have not yet picked an image.',
+              textAlign: TextAlign.center,
+            );
+          }
         });
-      }
-    } else {
-      _retrieveDataError = response.exception.code;
-    }
   }
 
   @override
@@ -156,35 +135,7 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: Platform.isAndroid
-            ? FutureBuilder<void>(
-                future: retrieveLostData(),
-                builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.none:
-                    case ConnectionState.waiting:
-                      return const Text(
-                        'You have not yet picked an image.',
-                        textAlign: TextAlign.center,
-                      );
-                    case ConnectionState.done:
-                      return isVideo ? _previewVideo() : _previewImage();
-                    default:
-                      if (snapshot.hasError) {
-                        return Text(
-                          'Pick image/video error: ${snapshot.error}}',
-                          textAlign: TextAlign.center,
-                        );
-                      } else {
-                        return const Text(
-                          'You have not yet picked an image.',
-                          textAlign: TextAlign.center,
-                        );
-                      }
-                  }
-                },
-              )
-            : (isVideo ? _previewVideo() : _previewImage()),
+        child: isVideo ? _previewVideo(_controller) : _previewImage(),
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -240,15 +191,6 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
-
-  Text _getRetrieveErrorWidget() {
-    if (_retrieveDataError != null) {
-      final Text result = Text(_retrieveDataError);
-      _retrieveDataError = null;
-      return result;
-    }
-    return null;
-  }
 }
 
 class AspectRatioVideo extends StatefulWidget {
@@ -264,26 +206,21 @@ class AspectRatioVideoState extends State<AspectRatioVideo> {
   VideoPlayerController get controller => widget.controller;
   bool initialized = false;
 
-  void _onVideoControllerUpdate() {
-    if (!mounted) {
-      return;
-    }
-    if (initialized != controller.value.initialized) {
-      initialized = controller.value.initialized;
-      setState(() {});
-    }
-  }
+  VoidCallback listener;
 
   @override
   void initState() {
     super.initState();
-    controller.addListener(_onVideoControllerUpdate);
-  }
-
-  @override
-  void dispose() {
-    controller.removeListener(_onVideoControllerUpdate);
-    super.dispose();
+    listener = () {
+      if (!mounted) {
+        return;
+      }
+      if (initialized != controller.value.initialized) {
+        initialized = controller.value.initialized;
+        setState(() {});
+      }
+    };
+    controller.addListener(listener);
   }
 
   @override

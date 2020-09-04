@@ -8,8 +8,6 @@ import 'package:flutter/services.dart';
 
 /// Provides device and operating system information.
 class DeviceInfoPlugin {
-  /// No work is done when instantiating the plugin. It's safe to call this
-  /// repeatedly or in performance-sensitive blocks.
   DeviceInfoPlugin();
 
   /// Channel used to communicate to native code.
@@ -23,8 +21,11 @@ class DeviceInfoPlugin {
   ///
   /// See: https://developer.android.com/reference/android/os/Build.html
   Future<AndroidDeviceInfo> get androidInfo async =>
-      _cachedAndroidDeviceInfo ??= AndroidDeviceInfo._fromMap(await channel
-          .invokeMapMethod<String, dynamic>('getAndroidDeviceInfo'));
+      _cachedAndroidDeviceInfo ??= AndroidDeviceInfo._fromMap(
+          // TODO(amirh): remove this on when the invokeMethod update makes it to stable Flutter.
+          // https://github.com/flutter/flutter/issues/26431
+          // ignore: strong_mode_implicit_dynamic_method
+          await channel.invokeMethod('getAndroidDeviceInfo'));
 
   /// This information does not change from call to call. Cache it.
   IosDeviceInfo _cachedIosDeviceInfo;
@@ -32,9 +33,11 @@ class DeviceInfoPlugin {
   /// Information derived from `UIDevice`.
   ///
   /// See: https://developer.apple.com/documentation/uikit/uidevice
-  Future<IosDeviceInfo> get iosInfo async =>
-      _cachedIosDeviceInfo ??= IosDeviceInfo._fromMap(
-          await channel.invokeMapMethod<String, dynamic>('getIosDeviceInfo'));
+  Future<IosDeviceInfo> get iosInfo async => _cachedIosDeviceInfo ??=
+      // TODO(amirh): remove this on when the invokeMethod update makes it to stable Flutter.
+      // https://github.com/flutter/flutter/issues/26431
+      // ignore: strong_mode_implicit_dynamic_method
+      IosDeviceInfo._fromMap(await channel.invokeMethod('getIosDeviceInfo'));
 }
 
 /// Information derived from `android.os.Build`.
@@ -127,10 +130,10 @@ class AndroidDeviceInfo {
   final String androidId;
 
   /// Deserializes from the message received from [_kChannel].
-  static AndroidDeviceInfo _fromMap(Map<String, dynamic> map) {
+  static AndroidDeviceInfo _fromMap(dynamic message) {
+    final Map<dynamic, dynamic> map = message;
     return AndroidDeviceInfo._(
-      version:
-          AndroidBuildVersion._fromMap(map['version']?.cast<String, dynamic>()),
+      version: AndroidBuildVersion._fromMap(map['version']),
       board: map['board'],
       bootloader: map['bootloader'],
       brand: map['brand'],
@@ -190,16 +193,15 @@ class AndroidBuildVersion {
   /// The user-visible version string.
   final String release;
 
-  /// The user-visible SDK version of the framework.
-  ///
-  /// Possible values are defined in: https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+  /// The user-visible SDK version of the framework; its possible values are defined in [AndroidBuildVersionCodes].
   final int sdkInt;
 
   /// The user-visible security patch level.
   final String securityPatch;
 
   /// Deserializes from the map message received from [_kChannel].
-  static AndroidBuildVersion _fromMap(Map<String, dynamic> map) {
+  static AndroidBuildVersion _fromMap(dynamic message) {
+    final Map<dynamic, dynamic> map = message;
     return AndroidBuildVersion._(
       baseOS: map['baseOS'],
       codename: map['codename'],
@@ -252,7 +254,8 @@ class IosDeviceInfo {
   final IosUtsname utsname;
 
   /// Deserializes from the map message received from [_kChannel].
-  static IosDeviceInfo _fromMap(Map<String, dynamic> map) {
+  static IosDeviceInfo _fromMap(dynamic message) {
+    final Map<dynamic, dynamic> map = message;
     return IosDeviceInfo._(
       name: map['name'],
       systemName: map['systemName'],
@@ -261,7 +264,7 @@ class IosDeviceInfo {
       localizedModel: map['localizedModel'],
       identifierForVendor: map['identifierForVendor'],
       isPhysicalDevice: map['isPhysicalDevice'] == 'true',
-      utsname: IosUtsname._fromMap(map['utsname']?.cast<String, dynamic>()),
+      utsname: IosUtsname._fromMap(map['utsname']),
     );
   }
 }
@@ -293,7 +296,8 @@ class IosUtsname {
   final String machine;
 
   /// Deserializes from the map message received from [_kChannel].
-  static IosUtsname _fromMap(Map<String, dynamic> map) {
+  static IosUtsname _fromMap(dynamic message) {
+    final Map<dynamic, dynamic> map = message;
     return IosUtsname._(
       sysname: map['sysname'],
       nodename: map['nodename'],

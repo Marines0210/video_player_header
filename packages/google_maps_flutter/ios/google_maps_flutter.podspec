@@ -17,6 +17,5 @@ A new flutter plugin project.
   s.dependency 'Flutter'
   s.dependency 'GoogleMaps'
   s.static_framework = true
-  s.platform = :ios, '8.0'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'VALID_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
+  s.ios.deployment_target = '8.0'
 end

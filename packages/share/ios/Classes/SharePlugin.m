@@ -1,53 +1,10 @@
-// Copyright 2019 The Flutter Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #import "SharePlugin.h"
 
 static NSString *const PLATFORM_CHANNEL = @"plugins.flutter.io/share";
-
-@interface ShareData : NSObject <UIActivityItemSource>
-
-@property(readonly, nonatomic, copy) NSString *subject;
-@property(readonly, nonatomic, copy) NSString *text;
-
-- (instancetype)initWithSubject:(NSString *)subject text:(NSString *)text NS_DESIGNATED_INITIALIZER;
-
-- (instancetype)init __attribute__((unavailable("Use initWithSubject:text: instead")));
-
-@end
-
-@implementation ShareData
-
-- (instancetype)init {
-  [super doesNotRecognizeSelector:_cmd];
-  return nil;
-}
-
-- (instancetype)initWithSubject:(NSString *)subject text:(NSString *)text {
-  self = [super init];
-  if (self) {
-    _subject = subject;
-    _text = text;
-  }
-  return self;
-}
-
-- (id)activityViewControllerPlaceholderItem:(UIActivityViewController *)activityViewController {
-  return @"";
-}
-
-- (id)activityViewController:(UIActivityViewController *)activityViewController
-         itemForActivityType:(UIActivityType)activityType {
-  return _text;
-}
-
-- (NSString *)activityViewController:(UIActivityViewController *)activityViewController
-              subjectForActivityType:(UIActivityType)activityType {
-  return [_subject isKindOfClass:NSNull.class] ? @"" : _subject;
-}
-
-@end
 
 @implementation FLTSharePlugin
 
@@ -60,7 +17,6 @@ static NSString *const PLATFORM_CHANNEL = @"plugins.flutter.io/share";
     if ([@"share" isEqualToString:call.method]) {
       NSDictionary *arguments = [call arguments];
       NSString *shareText = arguments[@"text"];
-      NSString *shareSubject = arguments[@"subject"];
 
       if (shareText.length == 0) {
         result([FlutterError errorWithCode:@"error"
@@ -74,14 +30,13 @@ static NSString *const PLATFORM_CHANNEL = @"plugins.flutter.io/share";
       NSNumber *originWidth = arguments[@"originWidth"];
       NSNumber *originHeight = arguments[@"originHeight"];
 
-      CGRect originRect = CGRectZero;
+      CGRect originRect;
       if (originX != nil && originY != nil && originWidth != nil && originHeight != nil) {
         originRect = CGRectMake([originX doubleValue], [originY doubleValue],
                                 [originWidth doubleValue], [originHeight doubleValue]);
       }
 
       [self share:shareText
-                 subject:shareSubject
           withController:[UIApplication sharedApplication].keyWindow.rootViewController
                 atSource:originRect];
       result(nil);
@@ -91,13 +46,12 @@ static NSString *const PLATFORM_CHANNEL = @"plugins.flutter.io/share";
   }];
 }
 
-+ (void)share:(NSString *)shareText
-           subject:(NSString *)subject
++ (void)share:(id)sharedItems
     withController:(UIViewController *)controller
           atSource:(CGRect)origin {
-  ShareData *data = [[ShareData alloc] initWithSubject:subject text:shareText];
   UIActivityViewController *activityViewController =
-      [[UIActivityViewController alloc] initWithActivityItems:@[ data ] applicationActivities:nil];
+      [[UIActivityViewController alloc] initWithActivityItems:@[ sharedItems ]
+                                        applicationActivities:nil];
   activityViewController.popoverPresentationController.sourceView = controller.view;
   if (!CGRectIsEmpty(origin)) {
     activityViewController.popoverPresentationController.sourceRect = origin;

@@ -2,11 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// ignore_for_file: public_member_api_docs
-
-import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -29,257 +25,143 @@ class PlaceMarkerBody extends StatefulWidget {
   State<StatefulWidget> createState() => PlaceMarkerBodyState();
 }
 
-typedef Marker MarkerUpdateAction(Marker marker);
-
 class PlaceMarkerBodyState extends State<PlaceMarkerBody> {
   PlaceMarkerBodyState();
+
   static final LatLng center = const LatLng(-33.86711, 151.1947171);
 
   GoogleMapController controller;
-  Map<MarkerId, Marker> markers = <MarkerId, Marker>{};
-  MarkerId selectedMarker;
-  int _markerIdCounter = 1;
+  int _markerCount = 0;
+  Marker _selectedMarker;
 
   void _onMapCreated(GoogleMapController controller) {
     this.controller = controller;
+    controller.onMarkerTapped.add(_onMarkerTapped);
   }
 
   @override
   void dispose() {
+    controller?.onMarkerTapped?.remove(_onMarkerTapped);
     super.dispose();
   }
 
-  void _onMarkerTapped(MarkerId markerId) {
-    final Marker tappedMarker = markers[markerId];
-    if (tappedMarker != null) {
-      setState(() {
-        if (markers.containsKey(selectedMarker)) {
-          final Marker resetOld = markers[selectedMarker]
-              .copyWith(iconParam: BitmapDescriptor.defaultMarker);
-          markers[selectedMarker] = resetOld;
-        }
-        selectedMarker = markerId;
-        final Marker newMarker = tappedMarker.copyWith(
-          iconParam: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen,
-          ),
-        );
-        markers[markerId] = newMarker;
-      });
+  void _onMarkerTapped(Marker marker) {
+    if (_selectedMarker != null) {
+      _updateSelectedMarker(
+        const MarkerOptions(icon: BitmapDescriptor.defaultMarker),
+      );
     }
+    setState(() {
+      _selectedMarker = marker;
+    });
+    _updateSelectedMarker(
+      MarkerOptions(
+        icon: BitmapDescriptor.defaultMarkerWithHue(
+          BitmapDescriptor.hueGreen,
+        ),
+      ),
+    );
   }
 
-  void _onMarkerDragEnd(MarkerId markerId, LatLng newPosition) async {
-    final Marker tappedMarker = markers[markerId];
-    if (tappedMarker != null) {
-      await showDialog<void>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-                actions: <Widget>[
-                  FlatButton(
-                    child: const Text('OK'),
-                    onPressed: () => Navigator.of(context).pop(),
-                  )
-                ],
-                content: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 66),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text('Old position: ${tappedMarker.position}'),
-                        Text('New position: $newPosition'),
-                      ],
-                    )));
-          });
-    }
+  void _updateSelectedMarker(MarkerOptions changes) {
+    controller.updateMarker(_selectedMarker, changes);
   }
 
   void _add() {
-    final int markerCount = markers.length;
-
-    if (markerCount == 12) {
-      return;
-    }
-
-    final String markerIdVal = 'marker_id_$_markerIdCounter';
-    _markerIdCounter++;
-    final MarkerId markerId = MarkerId(markerIdVal);
-
-    final Marker marker = Marker(
-      markerId: markerId,
+    controller.addMarker(MarkerOptions(
       position: LatLng(
-        center.latitude + sin(_markerIdCounter * pi / 6.0) / 20.0,
-        center.longitude + cos(_markerIdCounter * pi / 6.0) / 20.0,
+        center.latitude + sin(_markerCount * pi / 6.0) / 20.0,
+        center.longitude + cos(_markerCount * pi / 6.0) / 20.0,
       ),
-      infoWindow: InfoWindow(title: markerIdVal, snippet: '*'),
-      onTap: () {
-        _onMarkerTapped(markerId);
-      },
-      onDragEnd: (LatLng position) {
-        _onMarkerDragEnd(markerId, position);
-      },
-    );
-
+      infoWindowText: InfoWindowText('Marker #${_markerCount + 1}', '*'),
+    ));
     setState(() {
-      markers[markerId] = marker;
+      _markerCount += 1;
     });
   }
 
   void _remove() {
+    controller.removeMarker(_selectedMarker);
     setState(() {
-      if (markers.containsKey(selectedMarker)) {
-        markers.remove(selectedMarker);
-      }
+      _selectedMarker = null;
+      _markerCount -= 1;
     });
   }
 
   void _changePosition() {
-    final Marker marker = markers[selectedMarker];
-    final LatLng current = marker.position;
+    final LatLng current = _selectedMarker.options.position;
     final Offset offset = Offset(
       center.latitude - current.latitude,
       center.longitude - current.longitude,
     );
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        positionParam: LatLng(
+    _updateSelectedMarker(
+      MarkerOptions(
+        position: LatLng(
           center.latitude + offset.dy,
           center.longitude + offset.dx,
         ),
-      );
-    });
+      ),
+    );
   }
 
   void _changeAnchor() {
-    final Marker marker = markers[selectedMarker];
-    final Offset currentAnchor = marker.anchor;
+    final Offset currentAnchor = _selectedMarker.options.anchor;
     final Offset newAnchor = Offset(1.0 - currentAnchor.dy, currentAnchor.dx);
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        anchorParam: newAnchor,
-      );
-    });
+    _updateSelectedMarker(MarkerOptions(anchor: newAnchor));
   }
 
   Future<void> _changeInfoAnchor() async {
-    final Marker marker = markers[selectedMarker];
-    final Offset currentAnchor = marker.infoWindow.anchor;
+    final Offset currentAnchor = _selectedMarker.options.infoWindowAnchor;
     final Offset newAnchor = Offset(1.0 - currentAnchor.dy, currentAnchor.dx);
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        infoWindowParam: marker.infoWindow.copyWith(
-          anchorParam: newAnchor,
-        ),
-      );
-    });
+    _updateSelectedMarker(MarkerOptions(infoWindowAnchor: newAnchor));
   }
 
   Future<void> _toggleDraggable() async {
-    final Marker marker = markers[selectedMarker];
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        draggableParam: !marker.draggable,
-      );
-    });
+    _updateSelectedMarker(
+      MarkerOptions(draggable: !_selectedMarker.options.draggable),
+    );
   }
 
   Future<void> _toggleFlat() async {
-    final Marker marker = markers[selectedMarker];
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        flatParam: !marker.flat,
-      );
-    });
+    _updateSelectedMarker(MarkerOptions(flat: !_selectedMarker.options.flat));
   }
 
   Future<void> _changeInfo() async {
-    final Marker marker = markers[selectedMarker];
-    final String newSnippet = marker.infoWindow.snippet + '*';
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        infoWindowParam: marker.infoWindow.copyWith(
-          snippetParam: newSnippet,
-        ),
-      );
-    });
+    final InfoWindowText currentInfo = _selectedMarker.options.infoWindowText;
+    _updateSelectedMarker(MarkerOptions(
+      infoWindowText: InfoWindowText(
+        currentInfo.title,
+        currentInfo.snippet + '*',
+      ),
+    ));
   }
 
   Future<void> _changeAlpha() async {
-    final Marker marker = markers[selectedMarker];
-    final double current = marker.alpha;
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        alphaParam: current < 0.1 ? 1.0 : current * 0.75,
-      );
-    });
+    final double current = _selectedMarker.options.alpha;
+    _updateSelectedMarker(
+      MarkerOptions(alpha: current < 0.1 ? 1.0 : current * 0.75),
+    );
   }
 
   Future<void> _changeRotation() async {
-    final Marker marker = markers[selectedMarker];
-    final double current = marker.rotation;
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        rotationParam: current == 330.0 ? 0.0 : current + 30.0,
-      );
-    });
+    final double current = _selectedMarker.options.rotation;
+    _updateSelectedMarker(
+      MarkerOptions(rotation: current == 330.0 ? 0.0 : current + 30.0),
+    );
   }
 
   Future<void> _toggleVisible() async {
-    final Marker marker = markers[selectedMarker];
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        visibleParam: !marker.visible,
-      );
-    });
+    _updateSelectedMarker(
+      MarkerOptions(visible: !_selectedMarker.options.visible),
+    );
   }
 
   Future<void> _changeZIndex() async {
-    final Marker marker = markers[selectedMarker];
-    final double current = marker.zIndex;
-    setState(() {
-      markers[selectedMarker] = marker.copyWith(
-        zIndexParam: current == 12.0 ? 0.0 : current + 1.0,
-      );
-    });
+    final double current = _selectedMarker.options.zIndex;
+    _updateSelectedMarker(
+      MarkerOptions(zIndex: current == 12.0 ? 0.0 : current + 1.0),
+    );
   }
-
-// A breaking change to the ImageStreamListener API affects this sample.
-// I've updates the sample to use the new API, but as we cannot use the new
-// API before it makes it to stable I'm commenting out this sample for now
-// TODO(amirh): uncomment this one the ImageStream API change makes it to stable.
-// https://github.com/flutter/flutter/issues/33438
-//
-//  void _setMarkerIcon(BitmapDescriptor assetIcon) {
-//    if (selectedMarker == null) {
-//      return;
-//    }
-//
-//    final Marker marker = markers[selectedMarker];
-//    setState(() {
-//      markers[selectedMarker] = marker.copyWith(
-//        iconParam: assetIcon,
-//      );
-//    });
-//  }
-//
-//  Future<BitmapDescriptor> _getAssetIcon(BuildContext context) async {
-//    final Completer<BitmapDescriptor> bitmapIcon =
-//        Completer<BitmapDescriptor>();
-//    final ImageConfiguration config = createLocalImageConfiguration(context);
-//
-//    const AssetImage('assets/red_square.png')
-//        .resolve(config)
-//        .addListener(ImageStreamListener((ImageInfo image, bool sync) async {
-//      final ByteData bytes =
-//          await image.image.toByteData(format: ImageByteFormat.png);
-//      final BitmapDescriptor bitmap =
-//          BitmapDescriptor.fromBytes(bytes.buffer.asUint8List());
-//      bitmapIcon.complete(bitmap);
-//    }));
-//
-//    return await bitmapIcon.future;
-//  }
 
   @override
   Widget build(BuildContext context) {
@@ -297,10 +179,6 @@ class PlaceMarkerBodyState extends State<PlaceMarkerBody> {
                 target: LatLng(-33.852, 151.211),
                 zoom: 11.0,
               ),
-              // TODO(iskakaushik): Remove this when collection literals makes it to stable.
-              // https://github.com/flutter/flutter/issues/28312
-              // ignore: prefer_collection_literals
-              markers: Set<Marker>.of(markers.values),
             ),
           ),
         ),
@@ -315,19 +193,22 @@ class PlaceMarkerBodyState extends State<PlaceMarkerBody> {
                       children: <Widget>[
                         FlatButton(
                           child: const Text('add'),
-                          onPressed: _add,
+                          onPressed: (_markerCount == 12) ? null : _add,
                         ),
                         FlatButton(
                           child: const Text('remove'),
-                          onPressed: _remove,
+                          onPressed: (_selectedMarker == null) ? null : _remove,
                         ),
                         FlatButton(
                           child: const Text('change info'),
-                          onPressed: _changeInfo,
+                          onPressed:
+                              (_selectedMarker == null) ? null : _changeInfo,
                         ),
                         FlatButton(
                           child: const Text('change info anchor'),
-                          onPressed: _changeInfoAnchor,
+                          onPressed: (_selectedMarker == null)
+                              ? null
+                              : _changeInfoAnchor,
                         ),
                       ],
                     ),
@@ -335,52 +216,47 @@ class PlaceMarkerBodyState extends State<PlaceMarkerBody> {
                       children: <Widget>[
                         FlatButton(
                           child: const Text('change alpha'),
-                          onPressed: _changeAlpha,
+                          onPressed:
+                              (_selectedMarker == null) ? null : _changeAlpha,
                         ),
                         FlatButton(
                           child: const Text('change anchor'),
-                          onPressed: _changeAnchor,
+                          onPressed:
+                              (_selectedMarker == null) ? null : _changeAnchor,
                         ),
                         FlatButton(
                           child: const Text('toggle draggable'),
-                          onPressed: _toggleDraggable,
+                          onPressed: (_selectedMarker == null)
+                              ? null
+                              : _toggleDraggable,
                         ),
                         FlatButton(
                           child: const Text('toggle flat'),
-                          onPressed: _toggleFlat,
+                          onPressed:
+                              (_selectedMarker == null) ? null : _toggleFlat,
                         ),
                         FlatButton(
                           child: const Text('change position'),
-                          onPressed: _changePosition,
+                          onPressed: (_selectedMarker == null)
+                              ? null
+                              : _changePosition,
                         ),
                         FlatButton(
                           child: const Text('change rotation'),
-                          onPressed: _changeRotation,
+                          onPressed: (_selectedMarker == null)
+                              ? null
+                              : _changeRotation,
                         ),
                         FlatButton(
                           child: const Text('toggle visible'),
-                          onPressed: _toggleVisible,
+                          onPressed:
+                              (_selectedMarker == null) ? null : _toggleVisible,
                         ),
                         FlatButton(
                           child: const Text('change zIndex'),
-                          onPressed: _changeZIndex,
+                          onPressed:
+                              (_selectedMarker == null) ? null : _changeZIndex,
                         ),
-                        // A breaking change to the ImageStreamListener API affects this sample.
-                        // I've updates the sample to use the new API, but as we cannot use the new
-                        // API before it makes it to stable I'm commenting out this sample for now
-                        // TODO(amirh): uncomment this one the ImageStream API change makes it to stable.
-                        // https://github.com/flutter/flutter/issues/33438
-                        //
-                        // FlatButton(
-                        //   child: const Text('set marker icon'),
-                        //   onPressed: () {
-                        //     _getAssetIcon(context).then(
-                        //       (BitmapDescriptor icon) {
-                        //         _setMarkerIcon(icon);
-                        //       },
-                        //     );
-                        //   },
-                        // ),
                       ],
                     ),
                   ],

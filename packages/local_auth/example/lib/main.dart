@@ -1,9 +1,6 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-// ignore_for_file: public_member_api_docs
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -24,7 +21,6 @@ class _MyAppState extends State<MyApp> {
   bool _canCheckBiometrics;
   List<BiometricType> _availableBiometrics;
   String _authorized = 'Not Authorized';
-  bool _isAuthenticating = false;
 
   Future<void> _checkBiometrics() async {
     bool canCheckBiometrics;
@@ -57,31 +53,18 @@ class _MyAppState extends State<MyApp> {
   Future<void> _authenticate() async {
     bool authenticated = false;
     try {
-      setState(() {
-        _isAuthenticating = true;
-        _authorized = 'Authenticating';
-      });
       authenticated = await auth.authenticateWithBiometrics(
           localizedReason: 'Scan your fingerprint to authenticate',
           useErrorDialogs: true,
-          stickyAuth: true);
-      setState(() {
-        _isAuthenticating = false;
-        _authorized = 'Authenticating';
-      });
+          stickyAuth: false);
     } on PlatformException catch (e) {
       print(e);
     }
     if (!mounted) return;
 
-    final String message = authenticated ? 'Authorized' : 'Not Authorized';
     setState(() {
-      _authorized = message;
+      _authorized = authenticated ? 'Authorized' : 'Not Authorized';
     });
-  }
-
-  void _cancelAuthentication() {
-    auth.stopAuthentication();
   }
 
   @override
@@ -108,9 +91,8 @@ class _MyAppState extends State<MyApp> {
                 ),
                 Text('Current State: $_authorized\n'),
                 RaisedButton(
-                  child: Text(_isAuthenticating ? 'Cancel' : 'Authenticate'),
-                  onPressed:
-                      _isAuthenticating ? _cancelAuthentication : _authenticate,
+                  child: const Text('Authenticate'),
+                  onPressed: _authenticate,
                 )
               ])),
     ));

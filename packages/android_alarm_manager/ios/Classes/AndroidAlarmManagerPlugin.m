@@ -9,7 +9,7 @@
   FlutterMethodChannel* channel =
       [FlutterMethodChannel methodChannelWithName:@"plugins.flutter.io/android_alarm_manager"
                                   binaryMessenger:[registrar messenger]
-                                            codec:[FlutterJSONMethodCodec sharedInstance]];
+                                            codec:[FlutterJSONMessageCodec sharedInstance]];
   FLTAndroidAlarmManagerPlugin* instance = [[FLTAndroidAlarmManagerPlugin alloc] init];
   [registrar addMethodCallDelegate:instance channel:channel];
 }

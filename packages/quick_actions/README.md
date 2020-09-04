@@ -17,7 +17,6 @@ callback, which will then be called whenever the user launches the app via a
 quick action.
 
 ```dart
-final QuickActions quickActions = const QuickActions();
 quickActions.initialize((shortcutType) {
   if (shortcutType == 'action_main') {
     print('The user tapped on the "Main view" action.');
@@ -30,8 +29,8 @@ Finally, manage the app's quick actions, for instance:
 
 ```dart
 quickActions.setShortcutItems(<ShortcutItem>[
-  const ShortcutItem(type: 'action_main', localizedTitle: 'Main view', icon: 'icon_main'),
-  const ShortcutItem(type: 'action_help', localizedTitle: 'Help', icon: 'icon_help')
+  quickActions.ShortcutItem(type: 'action_main', localizedTitle: 'Main view', icon: 'icon_main'),
+  quickActions.ShortcutItem(type: 'action_help', localizedTitle: 'Help', icon: 'icon_help')
 ]);
 ```
 
